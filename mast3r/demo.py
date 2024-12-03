@@ -247,7 +247,7 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port, s
                         niter2 = gradio.Number(value=200, precision=0, minimum=0, maximum=100_000,
                                                label="num_iterations", info="For refinement!")
                         optim_level = gradio.Dropdown(["coarse", "refine", "refine+depth"],
-                                                      value='refine+depth', label="OptLevel",
+                                                      value='refine', label="OptLevel",
                                                       info="Optimization level")
                     with gradio.Row():
                         matching_conf_thr = gradio.Slider(label="Matching Confidence Thr", value=5.,

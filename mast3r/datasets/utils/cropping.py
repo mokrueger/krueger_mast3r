@@ -4,6 +4,7 @@
 # --------------------------------------------------------
 # cropping/match extraction
 # --------------------------------------------------------
+import cv2
 import numpy as np
 import mast3r.utils.path_to_dust3r  # noqa
 from dust3r.utils.device import to_numpy
@@ -11,6 +12,8 @@ from dust3r.utils.geometry import inv, geotrf
 
 
 def reciprocal_1d(corres_1_to_2, corres_2_to_1, ret_recip=False):
+    """ corres are flattened images, which hold the index of the pixel in the other image
+    """
     is_reciprocal1 = (corres_2_to_1[corres_1_to_2] == np.arange(len(corres_1_to_2)))
     pos1 = is_reciprocal1.nonzero()[0]
     pos2 = corres_1_to_2[pos1]
@@ -20,6 +23,8 @@ def reciprocal_1d(corres_1_to_2, corres_2_to_1, ret_recip=False):
 
 
 def extract_correspondences_from_pts3d(view1, view2, target_n_corres, rng=np.random, ret_xy=True, nneg=0):
+    # Matches are made via nearest neighbor of reprojected pixels!
+
     view1, view2 = to_numpy((view1, view2))
     # project pixels from image1 --> 3d points --> image2 pixels
     shape1, corres1_to_2 = reproject_view(view1['pts3d'], view2)
@@ -85,7 +90,22 @@ def reproject(pts3d, K, world2cam, shape):
 
     # reproject in camera2 space
     with np.errstate(divide='ignore', invalid='ignore'):
-        pos = geotrf(K @ world2cam[:3], pts3d, norm=1, ncol=2)
+        if hasattr(K, "D"):
+            # # Old version: (Appears to be slower) DOES NOT WORK NOW SINCE I CHANGED THE WAY K.__matmul__ works!!
+            # points = pts3d.reshape(-1, 3).T
+            # points = np.vstack([points, np.ones((1, points.shape[1], ))])
+            # pos = (K @ (world2cam @ points)[:3, :]).T.reshape((H, W, 2))
+
+            expanded = np.expand_dims(pts3d.reshape(-1, 3), axis=1).astype(np.float32)
+            rvec = np.ascontiguousarray(cv2.Rodrigues(world2cam[:3, :3])[0])
+            tvec = np.ascontiguousarray(world2cam[:3, 3:])
+            distorted_points, _ = cv2.fisheye.projectPoints(
+                expanded, rvec=rvec, tvec=tvec, K=np.array(K), D=K.D
+            )
+            pos = distorted_points.squeeze(1).reshape((H, W, 2))
+        else:
+            # Behavior from before
+            pos = geotrf(K @ world2cam[:3], pts3d, norm=1, ncol=2)
 
     # quantize to pixel positions
     return (H, W), ravel_xy(pos, shape)
@@ -174,6 +194,17 @@ def crop_to_homography(K, crop, target_size=None):
     # align with the corresponding corner from the target view
     corner2 = np.c_[[0, 0], crop_size][[0, 1], corner_idx]
 
+    # What we need to do with Fisheye is this:
+    # p1' = H @ p1 = K1 @ [R2∣T2] @ inv([R1∣T1]) @ inv(K1)
+    # Since we have fisheye it will be extended to the following:
+    # p1' = DISTORT @ (K1 @ [R2∣T2] @ inv([R1∣T1]) @ inv(K1)) @ UNDISTORT @ p1
+    # ???????????????????????????????????????????ßß
+    if hasattr(K, "D"):
+        raise NotImplementedError
+        corner = K.undistort_point(corner)
+        corner2 = K.undistort_point(corner)
+
+    # This essentially does K^-1 @ corner
     old_pt = _dotmv(np.linalg.inv(K), corner, norm=1)
     new_pt = _dotmv(np.linalg.inv(K2), corner2, norm=1)
     R = _rotation_origin_to_pt(old_pt) @ np.linalg.inv(_rotation_origin_to_pt(new_pt))
@@ -187,7 +218,7 @@ def crop_to_homography(K, crop, target_size=None):
     else:
         imsize = tuple(np.int32(crop_size).tolist())
 
-    return imsize, K2, R, K @ R @ np.linalg.inv(K2)
+    return imsize, K2, R, np.array(K) @ R @ np.linalg.inv(K2)
 
 
 def gen_random_crops(imsize, n_crops, resolution, aug_crop, rng=np.random):

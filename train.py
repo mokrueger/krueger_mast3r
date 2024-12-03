@@ -38,11 +38,20 @@ def get_args_parser():
     parser = dust3r_get_args_parser()
     # change defaults
     parser.prog = 'MASt3R training'
-    parser.set_defaults(model="AsymmetricMASt3R(patch_embed_cls='ManyAR_PatchEmbed')")
+    parser.set_defaults(
+        model="AsymmetricMASt3R(pos_embed='RoPE100', patch_embed_cls='ManyAR_PatchEmbed', img_size=(512, 512), head_type='catmlp+dpt', output_mode='pts3d+desc24', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12, two_confs=True)"
+    )
     return parser
 
 
 if __name__ == '__main__':
+    from dust3r.datasets import ColorJitter
+    # ds = ScanNetpp(
+    #     split="train",
+    #     ROOT="/home/morkru/scannet/preprocessed",
+    #     resolution=[(512, 160)], # (512, 384), (512, 336), (512, 288), (512, 256), (512, 160)],
+    #     aug_crop=False, aug_monocular=0.005, transform=ColorJitter, n_corres=8192, nneg=0.5
+    # )
     args = get_args_parser()
     args = args.parse_args()
     train(args)

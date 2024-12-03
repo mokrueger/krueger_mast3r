@@ -3,7 +3,7 @@
 set -eux
 
 # Default model name
-model_name="MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth"
+model_name="DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth"
 
 check_docker() {
     if ! command -v docker &>/dev/null; then
@@ -18,7 +18,7 @@ download_model_checkpoint() {
         return
     fi
     echo "Downloading model checkpoint ${model_name}..."
-    wget "https://download.europe.naverlabs.com/ComputerVision/MASt3R/${model_name}" -P ./files/checkpoints
+    wget "https://download.europe.naverlabs.com/ComputerVision/DUSt3R/${model_name}" -P ./files/checkpoints
 }
 
 set_dcomp() {

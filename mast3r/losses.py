@@ -345,7 +345,7 @@ class APLoss (MatchingCriterion):
         return apscore
 
 
-class MatchingLoss (Criterion, MultiLoss):
+class MatchingLoss(Criterion, MultiLoss):
     """ 
     Matching loss per image 
     only compare pixels inside an image but not in the whole batch as what would be done usually
@@ -442,8 +442,12 @@ class MatchingLoss (Criterion, MultiLoss):
             # split confidences between positives/negatives for loss computation
             details['conf_pos'] = map(lambda x: x[valid_matches.view(B, -1)], (confs1, confs2))
             details['conf_neg'] = map(lambda x: x[~valid_matches.view(B, -1)], (confs1, confs2))
-            details['Conf1_std'] = confs1.std()
-            details['Conf2_std'] = confs2.std()
+            details['matchConf1_std'] = confs1.std()
+            details['matchConf2_std'] = confs2.std()
+            details["matchConf1_mean"] = confs1.mean()
+            details["matchConf2_mean"] = confs2.mean()
+            # details["Conf1_med"] = confs1.median() TODO: Remove
+            # details["Conf2_med"] = confs2.median()
 
         return loss, details
 

@@ -127,3 +127,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/.gitignore
+/.idea/krueger_mast3r.iml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/vcs.xml
+dust3r/croco/models/curope/build
+dust3r/croco/models/curope/XXXcurope.cpython-311-x86_64-linux-gnu.so

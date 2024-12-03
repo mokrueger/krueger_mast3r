@@ -25,13 +25,13 @@ class MASt3RBaseStereoViewDataset(BaseStereoViewDataset):
                  split=None,
                  resolution=None,  # square_size or (width, height) or list of [(width,height), ...]
                  transform=ImgNorm,
-                 aug_crop=False,
-                 aug_swap=False,
-                 aug_monocular=False,
+                 aug_crop=False,  # random crops
+                 aug_swap=False,  # swap views randomly
+                 aug_monocular=False,  # Probability; Sets both views to be same view[0] == view[1] == first image
                  aug_portrait_or_landscape=True,  # automatic choice between landscape/portrait when possible
-                 aug_rot90=False,
-                 n_corres=0,
-                 nneg=0,
+                 aug_rot90=False,  # Probability; Rotate the camera by 90 deg
+                 n_corres=0,  # Number of gt correspondences to extract (via nearest neighbor of reproj. points)
+                 nneg=0,  #
                  n_tentative_crops=4,
                  seed=None):
         super().__init__(split=split, resolution=resolution, transform=transform, aug_crop=aug_crop, seed=seed)
@@ -147,6 +147,10 @@ class MASt3RBaseStereoViewDataset(BaseStereoViewDataset):
         for i in range(2):
             view = views[i]
             imsize, K_new, R, H = crop_to_homography(view['camera_intrinsics'], crops[i], crops_resolution[i])
+            # NOTE: K_new and H are now of type FisheyeMatrix
+            # NOTE2: crops are 4x1, which represent xy top-left and xy bottom-right of the crop
+
+            # This was also commented out before
             # imsize, K_new, H = upscale_homography(imsize, resolution, K_new, H)
 
             # update camera params
@@ -306,7 +310,9 @@ def transpose_to_landscape(view, revert=False):
         view['pts3d'] = view['pts3d'].swapaxes(0, 1)
 
         # transpose x and y pixels
-        view['camera_intrinsics'] = view['camera_intrinsics'][[1, 0, 2]]
+        view['camera_intrinsics'] = view['camera_intrinsics'][[1, 0, 2]]  # TODO: Check this
+        if hasattr(view['camera_intrinsics'], "D"):
+            view['camera_intrinsics'].is_rotated = True
 
         # transpose correspondences x and y
         view['corres'] = view['corres'][:, [1, 0]]
@@ -341,10 +347,13 @@ def rotate_90(views, k=1):
         else:
             raise ValueError(f'Bad value for {k=}')
 
+        # Apply transformation to principal point
         view['camera_intrinsics'][:2, 2] = geotrf(RT2, view['camera_intrinsics'][:2, 2])
         if k % 2 == 1:
             K = view['camera_intrinsics']
-            np.fill_diagonal(K, K.diagonal()[[1, 0, 2]])
+            np.fill_diagonal(K, K.diagonal()[[1, 0, 2]])  # Swaps fx and fy in K
+            if hasattr(view['camera_intrinsics'], "D"):
+                view['camera_intrinsics'].is_rotated = True  # I think
 
         pts3d, valid_mask = depthmap_to_absolute_camera_coordinates(**view)
         view['pts3d'] = pts3d
